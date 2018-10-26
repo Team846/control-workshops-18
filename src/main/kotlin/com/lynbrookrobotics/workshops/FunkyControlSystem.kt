@@ -10,31 +10,7 @@ import com.lynbrookrobotics.usbcontrolsystem.PololuMicroGearMotor
 import com.lynbrookrobotics.usbcontrolsystem.cap
 import com.lynbrookrobotics.usbcontrolsystem.runPeriodic
 
-// BASE TEMPLATE
-fun main(args: Array<String>) {
-
-    val mcu = connect()
-    val motorSpec = PololuMicroGearMotor()
-
-    // write initialization code here!
-
-    runPeriodic(10 * 1000) {
-        val position = mcu[Encoder1, Ticks] // # of ticks
-
-        val velocity = motorSpec.getSpeed( // % of max speed
-                position,
-                mcu[Encoder1, Period]
-        )
-
-        // write control code here!
-        val output = 0.0 // % of max power
-
-        mcu[Motor1] = cap(output.toInt())
-        mcu.flush()
-    }
-}
-
-private fun connect(): Microcontroller {
+fun connect(): Microcontroller {
     val allPorts = SerialPort.getCommPorts()
     allPorts.forEachIndexed { index, serialPort ->
         println(
