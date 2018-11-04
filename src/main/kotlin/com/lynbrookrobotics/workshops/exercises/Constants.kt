@@ -7,21 +7,25 @@ import com.lynbrookrobotics.usbcontrolsystem.Microcontroller.EncoderFeedbackType
 import com.lynbrookrobotics.usbcontrolsystem.Microcontroller.EncoderFeedbackType.Ticks
 import com.lynbrookrobotics.usbcontrolsystem.Microcontroller.Mode.DirectionAndDutyCycle
 import com.lynbrookrobotics.usbcontrolsystem.Microcontroller.MotorOutput.Motor1
-import com.lynbrookrobotics.usbcontrolsystem.PololuMicroGearMotor
-import com.lynbrookrobotics.usbcontrolsystem.cap
+import com.lynbrookrobotics.usbcontrolsystem.graph.CsvGrapher
+import com.lynbrookrobotics.usbcontrolsystem.graph.Grapher
+import com.lynbrookrobotics.usbcontrolsystem.graph.LiveGrapher
+import com.lynbrookrobotics.usbcontrolsystem.limitVoltage
 import com.lynbrookrobotics.usbcontrolsystem.runPeriodic
-import com.lynbrookrobotics.workshops.utility.CsvControlSystemGrapher
 
-inline fun standardSetup(crossinline f: (microseconds: Long, position: Int, velocity: Double) -> Double) {
-    val mcu = connect()
-    val log = log()
+inline fun standardSetup(mcuPort: Int? = null, logFileName: String? = null, crossinline f: (microseconds: Long, position: Int, velocity: Double) -> Double) {
+    val mcu = connect(mcuPort)
+    val log = log(logFileName)
     val motorSpec = PololuMicroGearMotor()
+
+    repeat(5) { mcu.flush() }
+    val x0 = mcu[Encoder1, Ticks]
 
     runPeriodic(10 * 1000) {
 
         val time = mcu.microsTimeStamp // microseconds
 
-        val position = mcu[Encoder1, Ticks] // # of ticks
+        val position = mcu[Encoder1, Ticks] - x0 // # of ticks
 
         val velocity = motorSpec.getSpeed( // % of max speed
                 position,
@@ -37,20 +41,24 @@ inline fun standardSetup(crossinline f: (microseconds: Long, position: Int, velo
                 output
         )
 
-        mcu[Motor1] = cap(output.toInt())
+        mcu[Motor1] = limitVoltage(output)
         mcu.flush()
     }
 }
 
-fun connect(): Microcontroller {
+fun connect(mcuPort: Int? = null): Microcontroller {
     val allPorts = SerialPort.getCommPorts()
 
     allPorts.mapIndexed { index, serialPort ->
         "$index\t${serialPort.systemPortName} - ${serialPort.portDescription}"
     }.forEach(::println)
 
-    println("Enter index of serial port:")
-    val device = allPorts[readLine()!!.toInt()]
+    fun getPort(): Int {
+        println("Enter index of serial port:")
+        return readLine()!!.toInt()
+    }
+
+    val device = allPorts[mcuPort ?: getPort()]
 
     val mcu = Microcontroller(
             device,
@@ -64,8 +72,22 @@ fun connect(): Microcontroller {
     return mcu
 }
 
-fun log(): CsvControlSystemGrapher {
-    println("Enter the name of your log file:")
-    val fileName = readLine()!!
-    return CsvControlSystemGrapher(fileName)
+fun log(logFileName: String? = null): Grapher {
+
+    fun getFileName(): String {
+        println("Enter the name of your log file:")
+        return readLine()!!
+    }
+
+    val fileName = logFileName ?: getFileName()
+
+    val timeUnit = "seconds"
+    val positionUnit = "ticks"
+    val velocityUnit = "$positionUnit/$timeUnit"
+    val outputUnit = "duty cycle"
+
+    return if (fileName.isBlank())
+        LiveGrapher(timeUnit, positionUnit, velocityUnit, outputUnit)
+    else
+        CsvGrapher(fileName, timeUnit, positionUnit, velocityUnit, outputUnit)
 }

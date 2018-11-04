@@ -8,11 +8,12 @@ version '0.0.1'
 repositories {
     jcenter()
     maven { url 'http://repo.kunalsheth.info/' }
+    mavenLocal()
 }
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
-    compile "com.lynbrookrobotics:usb-control-system:1.0.0"
+    compile "com.lynbrookrobotics:usb-control-system:1.1.0"
 }
 
 sourceCompatibility = 1.8
